@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="chat.css">
+    <title>Chat Simile a WhatsApp</title>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Chat</h2>
+            <ul id="chat-list">
+                <li onclick="selectChat('Chat 1')">Chat 1</li>
+                <li onclick="selectChat('Chat 2')">Chat 2</li>
+                <li onclick="selectChat('Chat 3')">Chat 3</li>
+                <!-- Aggiungi altre chat qui -->
+            </ul>
+        </div>
+        <div class="chat-area">
+            <h2 id="chat-title">Seleziona una chat</h2>
+            <div id="messages" class="messages"></div>
+            <input type="text" id="message-input" placeholder="Scrivi un messaggio...">
+            <button onclick="sendMessage()">Invia</button>
+        </div>
+    </div>
+
+    <script>
+        function selectChat(chatName) {
+            document.getElementById('chat-title').innerText = chatName;
+            // Pulisce i messaggi precedenti (se necessario)
+            document.getElementById('messages').innerHTML = '';
+            // Qui potresti caricare i messaggi della chat selezionata
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value;
+            if (message) {
+                const messagesDiv = document.getElementById('messages');
+                const messageElement = document.createElement('div');
+                messageElement.innerText = message;
+                messagesDiv.appendChild(messageElement);
+                input.value = ''; // Pulisce l'input
+            }
+        }
+    </script>
+</body>
+</html>

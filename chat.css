@@ -1,0 +1,60 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: #f0f0f0;
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar h2 {
+    margin: 0;
+}
+
+.sidebar ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.sidebar li {
+    padding: 10px;
+    cursor: pointer;
+}
+
+.sidebar li:hover {
+    background-color: #ddd;
+}
+
+.chat-area {
+    flex-grow: 1;
+    padding: 20px;
+}
+
+.chat-area h2 {
+    margin: 0;
+}
+
+.messages {
+    border: 1px solid #ccc;
+    height: calc(100% - 60px); /* Espressione per la larghezza totale - input e pulsante */
+    overflow-y: auto;
+    margin-bottom: 10px;
+    padding: 10px;
+}
+
+#message-input {
+    width: calc(100% - 80px); /* Spazio per il pulsante "Invia" */
+    padding: 10px;
+}
+
+button {
+    padding: 10px;
+}
