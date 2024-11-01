@@ -30,14 +30,26 @@ function sendMessage() {
 
 // Funzione per ottenere tutti i messaggi dal server
 function getAllMessages() {
-    fetch("/getAllMessages", {
+    if (!selectedChat) {
+        console.warn('Nessuna chat selezionata. Assicurati di selezionare un destinatario.');
+        return; // Esci dalla funzione se nessuna chat è selezionata
+    }
+
+    fetch(`/getAllMessages?chatId=${selectedChat}`, {
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
         },
         body: `username=${username}`
     })
-    .then(response => response.json())
+    .then(response => {
+        // Controlla se la risposta è valida e non contiene errori
+        if (!response.ok) {
+            console.error("Errore nel recupero dei messaggi:", response.statusText);
+            return;
+        }
+        return response.json(); // Analizza come JSON
+    })
     .then(data => {
         printMessages(data);
         createReceiverButtons(data); // Crea i pulsanti dei destinatari
@@ -50,11 +62,17 @@ function printMessages(messages) {
     const messagesContainer = document.getElementById("messagesContainer");
     messagesContainer.innerHTML = ""; // Pulisci i messaggi precedenti
 
-    messages.forEach(message => {
-        const messageElement = document.createElement("div");
-        messageElement.innerText = `${message.timestamp} - ${message.sender}: ${message.message}`;
-        messagesContainer.appendChild(messageElement);
-    });
+    if (messages.length === 0) {
+        const noMessagesElement = document.createElement("div");
+        noMessagesElement.innerText = "Nessun messaggio trovato per questa chat.";
+        messagesContainer.appendChild(noMessagesElement);
+    } else {
+        messages.forEach(message => {
+            const messageElement = document.createElement("div");
+            messageElement.innerText = `${message.timestamp} - ${message.sender}: ${message.message}`;
+            messagesContainer.appendChild(messageElement);
+        });
+    }
 }
 
 // Funzione per creare pulsanti dei destinatari
@@ -69,15 +87,7 @@ function createReceiverButtons(messages) {
         }
     });
 
-    const receiverButtonsContainer = document.getElementById("receiverButtons");
-    receiverButtonsContainer.innerHTML = ""; // Pulisci i pulsanti precedenti
-
-    receiverSet.forEach(receiver => {
-        const button = document.createElement("button");
-        button.innerText = receiver;
-        button.onclick = () => selectChat(receiver); // Imposta il destinatario selezionato
-        receiverButtonsContainer.appendChild(button);
-    });
+    populateReceiverButtons(Array.from(receiverSet)); // Passa l'array di destinatari
 }
 
 // Funzione per selezionare una chat
@@ -87,36 +97,51 @@ function selectChat(receiver) {
     getAllMessages(); // Recupera i messaggi per il destinatario selezionato
 }
 
-
+// Funzione per ottenere tutti gli utenti
 function getAllUsers() {
     fetch("/getUsers")
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                console.error("Errore nel recupero degli utenti:", response.statusText);
+                return;
+            }
+            return response.json();
+        })
         .then(data => {
-            console.log(data);
-            populateReceiverButtons(data.users); // Populate buttons with user data
+            populateReceiverButtons(data.users); // Popola i pulsanti con i dati degli utenti
         })
         .catch(error => console.error("Errore nel recupero degli utenti:", error));
 }
 
-// Update the initialize function to also call getAllUsers
 function initialize(usernameFromServer) {
-    username = usernameFromServer; // Imposta lo username
-    getAllMessages(); // Recupera i messaggi iniziali
-    getAllUsers(); // Recupera la lista degli utenti
-    setInterval(getAllMessages, 2000); // Chiama getAllMessages ogni 2 secondi
+    username = usernameFromServer; 
+    getAllMessages(); 
+    getAllUsers(); 
+    setInterval(getAllMessages, 2000); 
 }
 
-// New function to populate receiver buttons with users
 function populateReceiverButtons(users) {
     const receiverButtonsContainer = document.getElementById("receiverButtons");
-    receiverButtonsContainer.innerHTML = ""; // Pulisci i pulsanti precedenti
-
+    receiverButtonsContainer.innerHTML = ""; 
+    console.log(users);
     users.forEach(user => {
         const button = document.createElement("button");
-        button.innerText = user;
-        button.onclick = () => selectChat(user); // Imposta il destinatario selezionato
+        button.innerText = user.username || user; 
+        button.onclick = () => selectChat(user.username || user);
         receiverButtonsContainer.appendChild(button);
+        receiverButtonsContainer.appendChild(document.createElement("br"));
     });
 }
 
-initialize();
+fetch('/getUsername')
+    .then(response => {
+        // Log the raw response for debugging
+        return response.text().then(text => {
+            console.log('Raw response:', text);  // Log the raw response
+            return JSON.parse(text);  // Then try to parse it as JSON
+        });
+    })
+    .then(data => {
+        console.log('Logged in username:', data.username);
+    })
+    .catch(error => console.error('Error fetching username:', error));

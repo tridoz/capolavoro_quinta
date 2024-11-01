@@ -16,6 +16,10 @@
 #include <stdexcept>
 #include <iomanip>
 
+#define DB_User "trida"
+#define DB_Password "Mogg4356%#TRIDAPALI"
+#define DB_Name "DB_Capolavoro"
+
 using tcp = boost::asio::ip::tcp;
 namespace http = boost::beast::http;
 namespace json = boost::json;
@@ -33,6 +37,7 @@ private:
     boost::beast::flat_buffer buffer_;
     http::request<http::string_body> req_;
     http::response<http::string_body> res_;
+    std::string logged_username;
 
     void read_request() {
         auto self = shared_from_this();
@@ -73,7 +78,9 @@ private:
             handle_get_users();  // Handle the new endpoint for getting users
         } else if (req_.target().starts_with("/getMessages")) {
             handle_get_messages();
-        } else {
+        } else if(req_.target() == "/getUsername"){
+            handle_get_username();
+        }else {
             send_not_found();
         }
     }
@@ -91,7 +98,8 @@ private:
         sql::ResultSet *res;
 
         driver = sql::mysql::get_mysql_driver_instance();
-        con = driver->connect("tcp://127.0.0.1:3306", "user", "password");
+        con = driver->connect("tcp://127.0.0.1:3306", DB_User, DB_Password);
+        con->setSchema(DB_Name);
 
         // Query per ottenere tutti gli utenti
         pstmt = con->prepareStatement("SELECT username FROM Users");
@@ -134,6 +142,8 @@ private:
     void handle_login() {
         auto [username, password] = parse_credentials();
         if (check_credentials(username, password)) {
+            logged_username = username;  
+            std::cout<<logged_username<<std::endl;
             serve_html_file("chat.html");
         } else {
             serve_html_file("login.html", "Credenziali errate. Riprova.");
@@ -170,7 +180,18 @@ private:
             serve_response("Username parameter missing", "text/plain", http::status::bad_request);
         }
     }
-
+    
+    void handle_get_username() {
+        std::cout<<"get_username: "<<logged_username<<std::endl;
+        if (!logged_username.empty()) {
+            json::object response = { {"username", logged_username} };
+            serve_response(json::serialize(response), "application/json", http::status::ok);
+        } else {
+            json::object error_response = { {"error", "User not logged in"} };
+            serve_response(json::serialize(error_response), "application/json", http::status::unauthorized);
+        }
+    }
+    
     std::pair<std::string, std::string> parse_credentials() {
         std::string body = req_.body();
         auto username_pos = body.find("username=");
@@ -213,9 +234,9 @@ private:
     sql::ResultSet *res;
 
     driver = sql::mysql::get_mysql_driver_instance();
-    con = driver->connect("tcp://127.0.0.1:3306", "user", "password");
+    con = driver->connect("tcp://127.0.0.1:3306", DB_User, DB_Password);
+    con->setSchema(DB_Name);
 
-    // Query the database
     pstmt = con->prepareStatement( "SELECT sender, receiver, timestamp, text FROM Messages WHERE sender = ? OR receiver = ?");
     pstmt->setString(1, username);
     pstmt->setString(2, username);
@@ -252,7 +273,7 @@ private:
         try {
             auto con = create_connection();
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                "INSERT INTO Messages (sender, receiver, timestamp, text) VALUES (?, ?, NOW(), ?)"));
+                "INSERT INTO Messages (sender, receiver, timestamp, message) VALUES (?, ?, NOW(), ?)"));
             pstmt->setString(1, sender);
             pstmt->setString(2, receiver);
             pstmt->setString(3, text);
@@ -342,13 +363,12 @@ private:
         // Invia la risposta con il contenuto del file JavaScript
         serve_response(content, "application/javascript", http::status::ok);
     }
+
     void serve_response(const std::string& body, const std::string& content_type, http::status status) {
-        res_.version(req_.version());
         res_.result(status);
         res_.set(http::field::content_type, content_type);
         res_.body() = body;
-        res_.prepare_payload();
-
+        res_.prepare_payload();  // Ensure the payload is prepared
         auto self = shared_from_this();
         http::async_write(socket_, res_,
             [self](boost::beast::error_code ec, std::size_t) {
@@ -378,7 +398,7 @@ private:
 
     std::unique_ptr<sql::Connection> create_connection() {
         sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-        std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
+        std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", DB_User, DB_Password));
         con->setSchema("DB_Capolavoro");
         return con;
     }
