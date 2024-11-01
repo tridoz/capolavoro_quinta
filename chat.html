@@ -3,29 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
     <link rel="stylesheet" href="chat.css">
-    <title>Chat Simile a WhatsApp</title>
-
+    <script src="chat.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <h2>Chat</h2>
-            <ul id="chat-list">
-                <li onclick="selectChat('Chat 1')">Chat 1</li>
-                <li onclick="selectChat('Chat 2')">Chat 2</li>
-                <li onclick="selectChat('Chat 3')">Chat 3</li>
-                <!-- Aggiungi altre chat qui -->
-            </ul>
-        </div>
-        <div class="chat-area">
-            <h2 id="chat-title">Seleziona una chat</h2>
-            <div id="messages" class="messages"></div>
-            <input type="text" id="message-input" placeholder="Scrivi un messaggio...">
-            <button onclick="sendMessage()">Invia</button>
-        </div>
+    <div id="chatContainer">
+        <div id="receiverButtons"></div> <!-- Contenitore per i pulsanti dei destinatari -->
+        <div id="messagesContainer"></div>
+        <input type="text" id="messageInput" placeholder="Scrivi un messaggio...">
+        <button onclick="sendMessage()">Invia</button>
     </div>
-
-    <script src="chat.js"></script>
 </body>
 </html>

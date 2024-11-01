@@ -1,47 +1,95 @@
-// chat.js
+let selectedChat = ""; // Variabile globale per il destinatario selezionato
+let username = ""; // Variabile per lo username dell'utente loggato
 
-const chatArea = document.getElementById("chat-area"); // Assicurati che ci sia un'area per i messaggi
-const messageInput = document.getElementById("message-input"); // Input per il messaggio
-const sendButton = document.getElementById("send-button"); // Pulsante per inviare il messaggio
-const username = "utente1"; // Sostituisci con il nome utente dell'utente loggato
-const receiver = "utente2"; // Sostituisci con il destinatario corretto
-
-function updateChat() {
-    fetch("/getAllMessages")
-        .then(response => response.json())
-        .then(messages => {
-            chatArea.innerHTML = ""; // Pulisci l'area chat
-            messages.forEach(message => {
-                const messageElement = document.createElement("div");
-                messageElement.textContent = `${message.timestamp} [${message.sender}]: ${message.message}`;
-                chatArea.appendChild(messageElement);
-            });
-        })
-        .catch(error => console.error("Errore nel recupero dei messaggi:", error));
+// Funzione per inizializzare l'username
+function initialize(usernameFromServer) {
+    username = usernameFromServer; // Imposta lo username
+    getAllMessages(); // Recupera i messaggi iniziali
+    setInterval(getAllMessages, 2000); // Chiama getAllMessages ogni 2 secondi
 }
 
-// Chiama updateChat ogni 2 secondi
-setInterval(updateChat, 2000);
+// Funzione per inviare un messaggio al server
+function sendMessage() {
+    const messageInput = document.getElementById("messageInput");
+    const message = messageInput.value;
 
-sendButton.addEventListener("click", function() {
-    const messageText = messageInput.value;
-    const timestamp = new Date().toISOString(); // Ottieni il timestamp
+    if (message && selectedChat) {
+        fetch("/sendMessage", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: `sender=${username}&receiver=${selectedChat}&message=${encodeURIComponent(message)}`
+        })
+        .then(response => {
+            if (response.ok) {
+                messageInput.value = ""; // Pulisci il campo di input dopo l'invio
+                getAllMessages(); // Recupera i messaggi aggiornati
+            } else {
+                console.error("Errore nell'invio del messaggio");
+            }
+        })
+        .catch(error => console.error("Errore nella comunicazione con il server:", error));
+    } else {
+        alert("Seleziona un destinatario e scrivi un messaggio.");
+    }
+}
 
-    // Invia il messaggio al server
-    fetch("/sendMessage", {
+// Funzione per ottenere tutti i messaggi dal server
+function getAllMessages() {
+    fetch("/getAllMessages", {
         method: "POST",
         headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
+            "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `sender=${encodeURIComponent(username)}&receiver=${encodeURIComponent(receiver)}&timestamp=${encodeURIComponent(timestamp)}&message=${encodeURIComponent(messageText)}`
+        body: `username=${username}`
     })
-    .then(response => {
-        if (response.ok) {
-            messageInput.value = ""; // Pulisci l'input dopo l'invio
-            updateChat(); // Aggiorna la chat dopo l'invio
+    .then(response => response.json())
+    .then(data => {
+        printMessages(data);
+        createReceiverButtons(data); // Crea i pulsanti dei destinatari
+    })
+    .catch(error => console.error("Errore nel recupero dei messaggi:", error));
+}
+
+// Funzione per stampare i messaggi
+function printMessages(messages) {
+    const messagesContainer = document.getElementById("messagesContainer");
+    messagesContainer.innerHTML = ""; // Pulisci i messaggi precedenti
+
+    messages.forEach(message => {
+        const messageElement = document.createElement("div");
+        messageElement.innerText = `${message.timestamp} - ${message.sender}: ${message.message}`;
+        messagesContainer.appendChild(messageElement);
+    });
+}
+
+// Funzione per creare pulsanti dei destinatari
+function createReceiverButtons(messages) {
+    const receiverSet = new Set(); // Usa un Set per evitare duplicati
+
+    messages.forEach(message => {
+        if (message.sender !== username) { // Solo destinatari che non sono l'utente loggato
+            receiverSet.add(message.sender); // Aggiungi il mittente alla lista dei destinatari
         } else {
-            console.error("Errore nell'invio del messaggio:", response.statusText);
+            receiverSet.add(message.receiver); // Aggiungi il ricevente se l'utente è il mittente
         }
-    })
-    .catch(error => console.error("Errore nell'invio del messaggio:", error));
-});
+    });
+
+    const receiverButtonsContainer = document.getElementById("receiverButtons");
+    receiverButtonsContainer.innerHTML = ""; // Pulisci i pulsanti precedenti
+
+    receiverSet.forEach(receiver => {
+        const button = document.createElement("button");
+        button.innerText = receiver;
+        button.onclick = () => selectChat(receiver); // Imposta il destinatario selezionato
+        receiverButtonsContainer.appendChild(button);
+    });
+}
+
+// Funzione per selezionare una chat
+function selectChat(receiver) {
+    selectedChat = receiver; // Imposta il destinatario selezionato
+    document.getElementById("messagesContainer").innerHTML = ""; // Pulisci i messaggi
+    getAllMessages(); // Recupera i messaggi per il destinatario selezionato
+}
