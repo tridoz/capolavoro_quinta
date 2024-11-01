@@ -118,3 +118,5 @@ function populateReceiverButtons(users) {
         receiverButtonsContainer.appendChild(button);
     });
 }
+
+initialize();

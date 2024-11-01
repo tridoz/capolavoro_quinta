@@ -65,6 +65,8 @@ private:
             serve_css_file("login.css");
         } else if (req_.target() == "/register.css") {
             serve_css_file("register.css");
+        }else if(req_.target() == "/chat.css"){
+            serve_css_file("chat.css");
         } else if (req_.target() == "/chat.js") {
             serve_js_file("chat.js");
         } else if (req_.target() == "/getUsers") {
@@ -116,7 +118,6 @@ private:
 
         return jsonArray;
     }
-
 
     void handle_post_requests() {
         if (req_.target() == "/login") {
