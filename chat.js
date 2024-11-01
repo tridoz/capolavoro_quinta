@@ -1,13 +1,6 @@
 let selectedChat = ""; // Variabile globale per il destinatario selezionato
 let username = ""; // Variabile per lo username dell'utente loggato
 
-// Funzione per inizializzare l'username
-function initialize(usernameFromServer) {
-    username = usernameFromServer; // Imposta lo username
-    getAllMessages(); // Recupera i messaggi iniziali
-    setInterval(getAllMessages, 2000); // Chiama getAllMessages ogni 2 secondi
-}
-
 // Funzione per inviare un messaggio al server
 function sendMessage() {
     const messageInput = document.getElementById("messageInput");
@@ -92,4 +85,36 @@ function selectChat(receiver) {
     selectedChat = receiver; // Imposta il destinatario selezionato
     document.getElementById("messagesContainer").innerHTML = ""; // Pulisci i messaggi
     getAllMessages(); // Recupera i messaggi per il destinatario selezionato
+}
+
+
+function getAllUsers() {
+    fetch("/getUsers")
+        .then(response => response.json())
+        .then(data => {
+            console.log(data);
+            populateReceiverButtons(data.users); // Populate buttons with user data
+        })
+        .catch(error => console.error("Errore nel recupero degli utenti:", error));
+}
+
+// Update the initialize function to also call getAllUsers
+function initialize(usernameFromServer) {
+    username = usernameFromServer; // Imposta lo username
+    getAllMessages(); // Recupera i messaggi iniziali
+    getAllUsers(); // Recupera la lista degli utenti
+    setInterval(getAllMessages, 2000); // Chiama getAllMessages ogni 2 secondi
+}
+
+// New function to populate receiver buttons with users
+function populateReceiverButtons(users) {
+    const receiverButtonsContainer = document.getElementById("receiverButtons");
+    receiverButtonsContainer.innerHTML = ""; // Pulisci i pulsanti precedenti
+
+    users.forEach(user => {
+        const button = document.createElement("button");
+        button.innerText = user;
+        button.onclick = () => selectChat(user); // Imposta il destinatario selezionato
+        receiverButtonsContainer.appendChild(button);
+    });
 }

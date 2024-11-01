@@ -13,6 +13,8 @@
 #include <unordered_map>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
+#include <iomanip>
 
 using tcp = boost::asio::ip::tcp;
 namespace http = boost::beast::http;
@@ -38,6 +40,8 @@ private:
             [self](boost::beast::error_code ec, std::size_t) {
                 if (!ec) {
                     self->process_request();
+                } else {
+                    std::cerr << "Error reading request: " << ec.message() << std::endl;
                 }
             });
     }
@@ -61,12 +65,58 @@ private:
             serve_css_file("login.css");
         } else if (req_.target() == "/register.css") {
             serve_css_file("register.css");
+        } else if (req_.target() == "/chat.js") {
+            serve_js_file("chat.js");
+        } else if (req_.target() == "/getUsers") {
+            handle_get_users();  // Handle the new endpoint for getting users
         } else if (req_.target().starts_with("/getMessages")) {
             handle_get_messages();
         } else {
             send_not_found();
         }
     }
+
+    void handle_get_users() {
+        json::array users = get_all_users();
+        json::object response = { {"users", users} };
+        serve_response(json::serialize(response), "application/json", http::status::ok);
+    }
+
+    boost::json::array get_all_users() {
+        sql::mysql::MySQL_Driver *driver;
+        sql::Connection *con;
+        sql::PreparedStatement *pstmt;
+        sql::ResultSet *res;
+
+        driver = sql::mysql::get_mysql_driver_instance();
+        con = driver->connect("tcp://127.0.0.1:3306", "user", "password");
+
+        // Query per ottenere tutti gli utenti
+        pstmt = con->prepareStatement("SELECT username FROM Users");
+        res = pstmt->executeQuery();
+
+        boost::json::array jsonArray;
+
+        while (res->next()) {
+            // Recupera il nome utente
+            std::string username = res->getString("username");
+
+            // Crea un oggetto JSON
+            boost::json::object jsonObject;
+            jsonObject["username"] = username;
+
+            // Aggiungi l'oggetto all'array
+            jsonArray.push_back(std::move(jsonObject));
+        }
+
+        // Clean up
+        delete res;
+        delete pstmt;
+        delete con;
+
+        return jsonArray;
+    }
+
 
     void handle_post_requests() {
         if (req_.target() == "/login") {
@@ -100,8 +150,11 @@ private:
 
     void handle_send_message() {
         auto [sender, receiver, text] = parse_message();
-        save_message(sender, receiver, text);
-        serve_response("Message sent", "text/plain", http::status::ok);
+        if (save_message(sender, receiver, text)) {
+            serve_response("Message sent", "text/plain", http::status::ok);
+        } else {
+            serve_response("Error sending message", "text/plain", http::status::internal_server_error);
+        }
     }
 
     void handle_get_messages() {
@@ -152,65 +205,76 @@ private:
         return query.substr(pos + param.length() + 1);
     }
 
-    json::array get_all_messages(const std::string& username) {
-        json::array messages;
-        try {
-            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
-            con->setSchema("DB_Capolavoro");
+    json::array get_all_messages(std::string username) {
+    sql::mysql::MySQL_Driver *driver;
+    sql::Connection *con;
+    sql::PreparedStatement *pstmt;
+    sql::ResultSet *res;
 
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                "SELECT sender, receiver, timestamp, text FROM Messages WHERE sender = ? OR receiver = ?"));
-            pstmt->setString(1, username);
-            pstmt->setString(2, username);
+    driver = sql::mysql::get_mysql_driver_instance();
+    con = driver->connect("tcp://127.0.0.1:3306", "user", "password");
 
-            std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-            while (res->next()) {
-                json::object message = {
-                    {"sender", res->getString("sender")},
-                    {"receiver", res->getString("receiver")},
-                    {"timestamp", res->getString("timestamp")},
-                    {"text", res->getString("text")}
-                };
-                messages.push_back(message);
-            }
-        } catch (sql::SQLException& e) {
-            std::cerr << "Errore nel recupero dei messaggi: " << e.what() << std::endl;
-        }
-        return messages;
+    // Query the database
+    pstmt = con->prepareStatement( "SELECT sender, receiver, timestamp, text FROM Messages WHERE sender = ? OR receiver = ?");
+    pstmt->setString(1, username);
+    pstmt->setString(2, username);
+
+    res = pstmt->executeQuery();
+
+    boost::json::array jsonArray;
+
+    while (res->next()) {
+        // Convert SQLString to std::string
+        std::string sender = res->getString("sender").c_str();
+        std::string receiver = res->getString("receiver").c_str();
+        std::string message = res->getString("message").c_str();
+
+        // Create a JSON object
+        boost::json::object jsonObject;
+        jsonObject["sender"] = sender;
+        jsonObject["receiver"] = receiver;
+        jsonObject["message"] = message;
+
+        // Add the object to the array
+        jsonArray.push_back(jsonObject);
     }
 
-    void save_message(const std::string& sender, const std::string& receiver, const std::string& text) {
-        try {
-            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
-            con->setSchema("DB_Capolavoro");
+    // Clean up
+    delete res;
+    delete pstmt;
+    delete con;
 
+    return jsonArray;
+}
+
+    bool save_message(const std::string& sender, const std::string& receiver, const std::string& text) {
+        try {
+            auto con = create_connection();
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
                 "INSERT INTO Messages (sender, receiver, timestamp, text) VALUES (?, ?, NOW(), ?)"));
             pstmt->setString(1, sender);
             pstmt->setString(2, receiver);
             pstmt->setString(3, text);
             pstmt->executeUpdate();
+            std::cout<<"messaggio inserito correttamente nel DB"<<std::endl;
+            return true;
         } catch (sql::SQLException& e) {
             std::cerr << "Errore nel salvataggio del messaggio: " << e.what() << std::endl;
+            return false;
         }
     }
 
     bool check_credentials(const std::string& username, const std::string& password) {
         try {
-            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
-            con->setSchema("DB_Capolavoro");
-
+            auto con = create_connection();
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
                 "SELECT COUNT(*) FROM Users WHERE username = ? AND password = ?"));
             pstmt->setString(1, username);
-            pstmt->setString(2, password); // Assicurati che la password sia memorizzata in modo sicuro (hash)
+            pstmt->setString(2, password); // Hash password in a real implementation
 
             std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
             res->next();
-            return res->getInt(1) > 0; // Ritorna true se le credenziali sono corrette
+            return res->getInt(1) > 0;
         } catch (sql::SQLException& e) {
             std::cerr << "Errore nel controllo delle credenziali: " << e.what() << std::endl;
             return false;
@@ -219,15 +283,13 @@ private:
 
     bool register_user(const std::string& username, const std::string& password) {
         try {
-            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
-            con->setSchema("DB_Capolavoro");
-
+            auto con = create_connection();
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
                 "INSERT INTO Users (username, password) VALUES (?, ?)"));
             pstmt->setString(1, username);
-            pstmt->setString(2, password); // Assicurati che la password sia memorizzata in modo sicuro (hash)
+            pstmt->setString(2, password); // Hash password in a real implementation
             pstmt->executeUpdate();
+            std::cout<<"utente registrato correttamente"<<std::endl;
             return true;
         } catch (sql::SQLException& e) {
             std::cerr << "Errore nella registrazione: " << e.what() << std::endl;
@@ -235,53 +297,57 @@ private:
         }
     }
 
-    void serve_html_file(const std::string& filename, const std::string& error_message = "") {
+    void serve_html_file(const std::string& filename, const std::string& message = "") {
         std::ifstream file(filename);
-        if (file) {
-            std::ostringstream ss;
-            ss << file.rdbuf();
-            res_ = http::response<http::string_body>(http::status::ok, req_.version());
-            res_.set(http::field::content_type, "text/html");
-            res_.body() = ss.str();
-            res_.prepare_payload();
-        } else {
+        if (!file.is_open()) {
             send_not_found();
+            return;
         }
-        write_response();
+
+        std::ostringstream ss;
+        ss << file.rdbuf();
+        std::string content = ss.str();
+
+        if (!message.empty()) {
+            content += "<p>" + message + "</p>";
+        }
+
+        serve_response(content, "text/html", http::status::ok);
     }
 
     void serve_css_file(const std::string& filename) {
         std::ifstream file(filename);
-        if (file) {
-            std::ostringstream ss;
-            ss << file.rdbuf();
-            res_ = http::response<http::string_body>(http::status::ok, req_.version());
-            res_.set(http::field::content_type, "text/css");
-            res_.body() = ss.str();
-            res_.prepare_payload();
-        } else {
+        if (!file.is_open()) {
             send_not_found();
+            return;
         }
-        write_response();
+
+        std::ostringstream ss;
+        ss << file.rdbuf();
+        serve_response(ss.str(), "text/css", http::status::ok);
     }
 
+    void serve_js_file(const std::string& filename) {
+        std::ifstream file(filename);
+        if (!file.is_open()) {
+            send_not_found();
+            return;
+        }
+
+        // Leggi il contenuto del file in una stringa
+        std::string content((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+
+        // Invia la risposta con il contenuto del file JavaScript
+        serve_response(content, "application/javascript", http::status::ok);
+    }
     void serve_response(const std::string& body, const std::string& content_type, http::status status) {
-        res_ = http::response<http::string_body>(status, req_.version());
+        res_.version(req_.version());
+        res_.result(status);
         res_.set(http::field::content_type, content_type);
         res_.body() = body;
         res_.prepare_payload();
-        write_response();
-    }
 
-    void send_not_found() {
-        res_ = http::response<http::string_body>(http::status::not_found, req_.version());
-        res_.set(http::field::content_type, "text/plain");
-        res_.body() = "404 Not Found";
-        res_.prepare_payload();
-        write_response();
-    }
-
-    void write_response() {
         auto self = shared_from_this();
         http::async_write(socket_, res_,
             [self](boost::beast::error_code ec, std::size_t) {
@@ -289,41 +355,65 @@ private:
             });
     }
 
-    void decode_url(std::string& str) {
-        // Decodifica le sequenze percentuali
-        // Aggiungi qui la logica per decodificare i caratteri percentuali
+    void send_not_found() {
+        serve_response("404 Not Found", "text/plain", http::status::not_found);
     }
+
+    void decode_url(std::string& str) {
+        std::string decoded;
+        char ch;
+        int h;
+        for (size_t i = 0; i < str.length(); ++i) {
+            if (str[i] == '%') {
+                sscanf(str.substr(i + 1, 2).c_str(), "%x", &h);
+                decoded += static_cast<char>(h);
+                i += 2;
+            } else {
+                decoded += str[i];
+            }
+        }
+        str = decoded;
+    }
+
+    std::unique_ptr<sql::Connection> create_connection() {
+        sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+        std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
+        con->setSchema("DB_Capolavoro");
+        return con;
+    }
+
 };
 
 class Server {
 public:
-    Server(boost::asio::io_context& ioc, tcp::endpoint endpoint)
+    Server(boost::asio::io_context& ioc, tcp::endpoint endpoint) 
         : acceptor_(ioc, endpoint) {
-        accept_connections();
+        start_accept();
     }
 
 private:
     tcp::acceptor acceptor_;
 
-    void accept_connections() {
+    void start_accept() {
         acceptor_.async_accept(
             [this](boost::beast::error_code ec, tcp::socket socket) {
                 if (!ec) {
                     std::make_shared<Session>(std::move(socket))->start();
                 }
-                accept_connections();
+                start_accept();
             });
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
         boost::asio::io_context ioc;
         tcp::endpoint endpoint(tcp::v4(), 8080);
         Server server(ioc, endpoint);
         ioc.run();
     } catch (const std::exception& e) {
-        std::cerr << "Errore: " << e.what() << std::endl;
+        std::cerr << "Server error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
