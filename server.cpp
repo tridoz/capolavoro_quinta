@@ -1,9 +1,17 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio.hpp>
+#include <boost/json.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+
+#include <mysql_driver.h>
+#include <mysql_connection.h>
+#include <cppconn/statement.h>
+#include <cppconn/resultset.h>
+#include <cppconn/prepared_statement.h>
+
 #include <iostream>
 #include <memory>
 #include <unordered_map>
@@ -12,13 +20,14 @@
 
 using tcp = boost::asio::ip::tcp;
 namespace http = boost::beast::http;
+namespace json = boost::json;
 
 std::unordered_map<std::string, std::string> users = {
     {"utente1", "password1"},
     {"utente2", "password2"}
 };
 
-std::unordered_map<std::string, std::string> tokens;  // Memorizza i token generati
+std::unordered_map<std::string, std::string> tokens;  
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
@@ -48,19 +57,22 @@ private:
         // Estrai il token dall'intestazione "Authorization"
         std::string token;
         auto auth_header = req_.find(http::field::authorization);
+
         if (auth_header != req_.end()) {
-            token = std::string(auth_header->value());
+            token = std::string(auth_header->value());  // Converte direttamente in std::string
         }
 
         if (req_.method() == http::verb::get) {
-            if (req_.target() == "/" || req_.target() == "/login.html") {
-                serve_html_file("login.html");  // Serve la pagina di login
+            if (req_.target() == "/login.html") {
+                serve_html_file("login.html");
             } else if (req_.target() == "/login.css") {
-                serve_css_file("login.css");  // Serve il CSS della pagina di login
+                serve_css_file("login.css");
             } else if (req_.target() == "/chat.html") {
-                serve_html_file("chat.html");  // Serve la pagina della chat
+                serve_html_file("chat.html");
             } else if (req_.target() == "/chat.css") {
-                serve_css_file("chat.css");  // Serve il CSS della chat
+                serve_css_file("chat.css");
+            } else if (req_.target() == "/chat.js") {
+                serve_js_file("chat.js", token);
             } else {
                 res_.result(http::status::not_found);
                 res_.set(http::field::content_type, "text/plain");
@@ -72,7 +84,7 @@ private:
             std::string body = req_.body();
             auto username_pos = body.find("username=");
             auto password_pos = body.find("&password=");
-
+            
             std::string username = body.substr(username_pos + 9, password_pos - (username_pos + 9));
             std::string password = body.substr(password_pos + 10);
 
@@ -85,33 +97,14 @@ private:
                 token = generate_token(username);
                 tokens[token] = username;  // Memorizza il token con il relativo username
 
-                // Restituisce chat.html
-                res_.result(http::status::ok);
-                res_.set(http::field::content_type, "text/html");
-                res_.body() = read_html_file("chat.html");  // Serve il file HTML della chat
-                res_.prepare_payload();
-                write_response();
-
-                // La richiesta per chat.css sarà gestita separatamente
-                return;
+                // Invia la pagina chat
+                serve_html_file("chat.html");
             } else {
                 serve_html_file("login.html", "Credenziali errate. Riprova.");
-            }
-        } else if (req_.method() == http::verb::put) {
-            if (tokens.find(token) != tokens.end()) {
-                // Operazione autorizzata, gestisci l'operazione qui
-                res_.result(http::status::ok);
-                res_.set(http::field::content_type, "text/plain");
-                res_.body() = "Operazione autorizzata!";
-            } else {
-                res_.result(http::status::unauthorized);
-                res_.set(http::field::content_type, "text/plain");
-                res_.body() = "Token non valido.";
             }
         }
         write_response();
     }
-
 
     void serve_html_file(const std::string& file_path, const std::string& error_message = "") {
         std::string content = read_html_file(file_path);
@@ -138,6 +131,59 @@ private:
         res_.body() = buffer.str();
         res_.prepare_payload();
         write_response();
+    }
+
+    void serve_js_file(const std::string& path, const std::string& token) {
+        // Controlla se il token è valido
+        if (tokens.find(token) != tokens.end()) {
+            std::string username = tokens[token];
+            json::array messages_json = retrieve_user_messages(username);
+
+            // Leggi il contenuto di chat.js
+            std::ifstream file(path);
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+
+            // Aggiungi i messaggi come variabile JavaScript
+            std::string js_code = "const messages = " + json::serialize(messages_json) + ";\n" + buffer.str();
+
+            serve_response(js_code, "application/javascript", http::status::ok);
+        } else {
+            res_.result(http::status::unauthorized);
+            res_.set(http::field::content_type, "text/plain");
+            res_.body() = "Token non valido.";
+            write_response();
+        }
+    }
+
+    json::array retrieve_user_messages(const std::string& username) {
+        json::array messages_json;
+
+        try {
+            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "root", "password"));
+            con->setSchema("DB_Capolavoro");
+
+            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
+                "SELECT sender, receiver, message, timestamp FROM messages WHERE sender = ? OR receiver = ?"));
+            pstmt->setString(1, username);
+            pstmt->setString(2, username);
+
+            std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+
+            while (res->next()) {
+                json::object msg;
+                msg["sender"] = json::value(std::string(res->getString("sender")));
+                msg["receiver"] = json::value(std::string(res->getString("receiver")));
+                msg["message"] = json::value(std::string(res->getString("message")));
+                msg["timestamp"] = json::value(std::string(res->getString("timestamp")));
+                messages_json.push_back(msg);
+            }
+        } catch (sql::SQLException& e) {
+            std::cerr << "Errore nel recupero dei messaggi: " << e.what() << std::endl;
+        }
+
+        return messages_json;
     }
 
     void serve_response(const std::string& body, const std::string& content_type, http::status status) {
@@ -173,7 +219,6 @@ private:
     }
 
     std::string generate_token(const std::string& username) {
-        // Genera un token unico (UUID)
         boost::uuids::uuid uuid = boost::uuids::random_generator()();
         return to_string(uuid);
     }
@@ -200,17 +245,13 @@ private:
     }
 };
 
-int main() {
+int main(int argc, char* argv[]) {
     try {
         boost::asio::io_context io_context;
-
         Server server(io_context, 8080);
-
-        std::cout << "Server in ascolto su http://localhost:8080" << std::endl;
-
         io_context.run();
     } catch (std::exception& e) {
-        std::cerr << "Errore: " << e.what() << std::endl;
+        std::cerr << "Eccezione: " << e.what() << std::endl;
     }
 
     return 0;
