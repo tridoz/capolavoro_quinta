@@ -47,16 +47,31 @@ private:
     }
 
     void process_request() {
-        if (req_.method() == http::verb::post) {
-            std::string body = req_.body();
-            if (req_.target() == "/register") {
-                handle_registration(body);
-            } else if (req_.target() == "/login") {
-                handle_login(body);
+        if (req_.method() == http::verb::get) {
+            if (req_.target() == "/" || req_.target() == "/login.html") {
+                serve_html_file("login.html");
+            } else if (req_.target() == "/register.html") {
+                serve_html_file("register.html");
+            } else if (req_.target() == "/login.css") {
+                serve_css_file("login.css");
+            } else if (req_.target() == "/register.css") {
+                serve_css_file("register.css");
+            } else if (req_.target() == "/getMessages") {
+                handle_get_messages();
+            } else {
+                res_.result(http::status::not_found);
+                res_.set(http::field::content_type, "text/plain");
+                res_.body() = "404 Not Found";
+                write_response();
+                return;
             }
-        } else if (req_.method() == http::verb::get) {
-            if (req_.target() == "/chat.html") {
-                serve_html_file("chat.html");
+        } else if (req_.method() == http::verb::post) {
+            if (req_.target() == "/login") {
+                handle_login();
+            } else if (req_.target() == "/register") {
+                handle_registration();
+            } else if (req_.target() == "/sendMessage") {
+                handle_send_message();
             } else {
                 res_.result(http::status::not_found);
                 res_.set(http::field::content_type, "text/plain");
@@ -67,7 +82,8 @@ private:
         }
     }
 
-    void handle_registration(const std::string& body) {
+    void handle_login() {
+        std::string body = req_.body();
         auto username_pos = body.find("username=");
         auto password_pos = body.find("&password=");
         
@@ -77,29 +93,15 @@ private:
         decode_url(username);
         decode_url(password);
 
-        try {
-            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
-            con->setSchema("DB_Capolavoro");
-
-            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                "INSERT INTO users (username, password) VALUES (?, ?)"));
-            pstmt->setString(1, username);
-            pstmt->setString(2, password);
-            pstmt->execute();
-
-            res_.result(http::status::ok);
-            res_.set(http::field::content_type, "text/plain");
-            res_.body() = "Registrazione avvenuta con successo!";
-        } catch (sql::SQLException& e) {
-            res_.result(http::status::bad_request);
-            res_.set(http::field::content_type, "text/plain");
-            res_.body() = "Errore nella registrazione: " + std::string(e.what());
+        if (check_credentials(username, password)) {
+            serve_html_file("chat.html");
+        } else {
+            serve_html_file("login.html", "Credenziali errate. Riprova.");
         }
-        write_response();
     }
 
-    void handle_login(const std::string& body) {
+    void handle_registration() {
+        std::string body = req_.body();
         auto username_pos = body.find("username=");
         auto password_pos = body.find("&password=");
         
@@ -109,37 +111,133 @@ private:
         decode_url(username);
         decode_url(password);
 
+        if (register_user(username, password)) {
+            serve_html_file("login.html");
+        } else {
+            serve_html_file("register.html", "Errore nella registrazione. Riprova.");
+        }
+    }
+
+    void handle_send_message() {
+        std::string body = req_.body();
+        auto sender_pos = body.find("sender=");
+        auto receiver_pos = body.find("&receiver=");
+        auto text_pos = body.find("&text=");
+
+        std::string sender = body.substr(sender_pos + 7, receiver_pos - (sender_pos + 7));
+        std::string receiver = body.substr(receiver_pos + 10, text_pos - (receiver_pos + 10));
+        std::string text = body.substr(text_pos + 6);
+
+        decode_url(sender);
+        decode_url(receiver);
+        decode_url(text);
+
+        save_message(sender, receiver, text);
+        serve_response("Message sent", "text/plain", http::status::ok);
+    }
+
+    void handle_get_messages() {
+        // Assuming the username is passed as a query parameter
+        auto query = req_.target().to_string();
+        auto username_pos = query.find("username=");
+        std::string username = query.substr(username_pos + 9);
+
+        decode_url(username);
+        json::array messages = get_all_messages(username);
+        
+        json::object response = { {"messages", messages} };
+        serve_response(json::serialize(response), "application/json", http::status::ok);
+    }
+
+    json::array get_all_messages(const std::string& username) {
+        json::array messages;
         try {
             sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
             std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
             con->setSchema("DB_Capolavoro");
 
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
-                "SELECT * FROM users WHERE username = ? AND password = ?"));
+                "SELECT sender, receiver, timestamp, text FROM Messages WHERE sender = ? OR receiver = ?"));
             pstmt->setString(1, username);
-            pstmt->setString(2, password);
+            pstmt->setString(2, username);
 
             std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
-
-            if (res->next()) {
-                res_.result(http::status::ok);
-                res_.set(http::field::content_type, "text/plain");
-                res_.body() = "Login effettuato con successo!";
-            } else {
-                res_.result(http::status::unauthorized);
-                res_.set(http::field::content_type, "text/plain");
-                res_.body() = "Credenziali errate.";
+            while (res->next()) {
+                json::object message = {
+                    {"sender", res->getString("sender")},
+                    {"receiver", res->getString("receiver")},
+                    {"timestamp", res->getString("timestamp")},
+                    {"text", res->getString("text")}
+                };
+                messages.push_back(message);
             }
         } catch (sql::SQLException& e) {
-            res_.result(http::status::internal_server_error);
-            res_.set(http::field::content_type, "text/plain");
-            res_.body() = "Errore durante il login: " + std::string(e.what());
+            std::cerr << "Errore nel recupero dei messaggi: " << e.what() << std::endl;
         }
-        write_response();
+        return messages;
     }
 
-    void serve_html_file(const std::string& file_path) {
+    void save_message(const std::string& sender, const std::string& receiver, const std::string& text) {
+        try {
+            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
+            con->setSchema("DB_Capolavoro");
+
+            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
+                "INSERT INTO Messages (sender, receiver, timestamp, text) VALUES (?, ?, NOW(), ?)"));
+            pstmt->setString(1, sender);
+            pstmt->setString(2, receiver);
+            pstmt->setString(3, text);
+            pstmt->executeUpdate();
+        } catch (sql::SQLException& e) {
+            std::cerr << "Errore nel salvataggio del messaggio: " << e.what() << std::endl;
+        }
+    }
+
+    bool check_credentials(const std::string& username, const std::string& password) {
+        try {
+            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
+            con->setSchema("DB_Capolavoro");
+
+            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
+                "SELECT COUNT(*) FROM Users WHERE username = ? AND password = ?"));
+            pstmt->setString(1, username);
+            pstmt->setString(2, password); // Assicurati che la password sia memorizzata in modo sicuro (hash)
+
+            std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+            res->next();
+            return res->getInt(1) > 0; // Ritorna true se le credenziali sono corrette
+        } catch (sql::SQLException& e) {
+            std::cerr << "Errore nel controllo delle credenziali: " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    bool register_user(const std::string& username, const std::string& password) {
+        try {
+            sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
+            std::unique_ptr<sql::Connection> con(driver->connect("tcp://127.0.0.1:3306", "trida", "Mogg4356%#TRIDAPALI"));
+            con->setSchema("DB_Capolavoro");
+
+            std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
+                "INSERT INTO Users (username, password) VALUES (?, ?)"));
+            pstmt->setString(1, username);
+            pstmt->setString(2, password); // Assicurati di gestire la sicurezza delle password
+
+            pstmt->executeUpdate();
+            return true; // Registrazione avvenuta con successo
+        } catch (sql::SQLException& e) {
+            std::cerr << "Errore nella registrazione: " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    void serve_html_file(const std::string& file_path, const std::string& error_message = "") {
         std::string content = read_html_file(file_path);
+        if (content.empty() && !error_message.empty()) {
+            content = "<html><body><h1>" + error_message + "</h1></body></html>";
+        }
         serve_response(content, "text/html", http::status::ok);
     }
 
