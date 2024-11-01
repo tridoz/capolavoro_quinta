@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="chat.css">
     <title>Chat Simile a WhatsApp</title>
-    
+
 </head>
 <body>
     <div class="container">
@@ -26,25 +26,6 @@
         </div>
     </div>
 
-    <script>
-        function selectChat(chatName) {
-            document.getElementById('chat-title').innerText = chatName;
-            // Pulisce i messaggi precedenti (se necessario)
-            document.getElementById('messages').innerHTML = '';
-            // Qui potresti caricare i messaggi della chat selezionata
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value;
-            if (message) {
-                const messagesDiv = document.getElementById('messages');
-                const messageElement = document.createElement('div');
-                messageElement.innerText = message;
-                messagesDiv.appendChild(messageElement);
-                input.value = ''; // Pulisce l'input
-            }
-        }
-    </script>
+    <script src="chat.js"></script>
 </body>
 </html>
