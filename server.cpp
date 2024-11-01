@@ -2,10 +2,6 @@
 #include <boost/beast/http.hpp>
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
-
 #include <mysql_driver.h>
 #include <mysql_connection.h>
 #include <cppconn/statement.h>
@@ -24,7 +20,7 @@ namespace json = boost::json;
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
-    Session(tcp::socket socket) : socket_(std::move(socket)) {}
+    explicit Session(tcp::socket socket) : socket_(std::move(socket)) {}
 
     void start() {
         read_request();
@@ -39,7 +35,7 @@ private:
     void read_request() {
         auto self = shared_from_this();
         http::async_read(socket_, buffer_, req_,
-            [self](boost::beast::error_code ec, std::size_t bytes_transferred) {
+            [self](boost::beast::error_code ec, std::size_t) {
                 if (!ec) {
                     self->process_request();
                 }
@@ -48,51 +44,44 @@ private:
 
     void process_request() {
         if (req_.method() == http::verb::get) {
-            if (req_.target() == "/" || req_.target() == "/login.html") {
-                serve_html_file("login.html");
-            } else if (req_.target() == "/register.html") {
-                serve_html_file("register.html");
-            } else if (req_.target() == "/login.css") {
-                serve_css_file("login.css");
-            } else if (req_.target() == "/register.css") {
-                serve_css_file("register.css");
-            } else if (req_.target() == "/getMessages") {
-                handle_get_messages();
-            } else {
-                res_.result(http::status::not_found);
-                res_.set(http::field::content_type, "text/plain");
-                res_.body() = "404 Not Found";
-                write_response();
-                return;
-            }
+            handle_get_requests();
         } else if (req_.method() == http::verb::post) {
-            if (req_.target() == "/login") {
-                handle_login();
-            } else if (req_.target() == "/register") {
-                handle_registration();
-            } else if (req_.target() == "/sendMessage") {
-                handle_send_message();
-            } else {
-                res_.result(http::status::not_found);
-                res_.set(http::field::content_type, "text/plain");
-                res_.body() = "404 Not Found";
-                write_response();
-                return;
-            }
+            handle_post_requests();
+        } else {
+            send_not_found();
+        }
+    }
+
+    void handle_get_requests() {
+        if (req_.target() == "/" || req_.target() == "/login.html") {
+            serve_html_file("login.html");
+        } else if (req_.target() == "/register.html") {
+            serve_html_file("register.html");
+        } else if (req_.target() == "/login.css") {
+            serve_css_file("login.css");
+        } else if (req_.target() == "/register.css") {
+            serve_css_file("register.css");
+        } else if (req_.target().starts_with("/getMessages")) {
+            handle_get_messages();
+        } else {
+            send_not_found();
+        }
+    }
+
+    void handle_post_requests() {
+        if (req_.target() == "/login") {
+            handle_login();
+        } else if (req_.target() == "/register") {
+            handle_registration();
+        } else if (req_.target() == "/sendMessage") {
+            handle_send_message();
+        } else {
+            send_not_found();
         }
     }
 
     void handle_login() {
-        std::string body = req_.body();
-        auto username_pos = body.find("username=");
-        auto password_pos = body.find("&password=");
-        
-        std::string username = body.substr(username_pos + 9, password_pos - (username_pos + 9));
-        std::string password = body.substr(password_pos + 10);
-
-        decode_url(username);
-        decode_url(password);
-
+        auto [username, password] = parse_credentials();
         if (check_credentials(username, password)) {
             serve_html_file("chat.html");
         } else {
@@ -101,16 +90,7 @@ private:
     }
 
     void handle_registration() {
-        std::string body = req_.body();
-        auto username_pos = body.find("username=");
-        auto password_pos = body.find("&password=");
-        
-        std::string username = body.substr(username_pos + 9, password_pos - (username_pos + 9));
-        std::string password = body.substr(password_pos + 10);
-
-        decode_url(username);
-        decode_url(password);
-
+        auto [username, password] = parse_credentials();
         if (register_user(username, password)) {
             serve_html_file("login.html");
         } else {
@@ -119,6 +99,38 @@ private:
     }
 
     void handle_send_message() {
+        auto [sender, receiver, text] = parse_message();
+        save_message(sender, receiver, text);
+        serve_response("Message sent", "text/plain", http::status::ok);
+    }
+
+    void handle_get_messages() {
+        auto query = std::string(req_.target());
+        auto username = parse_query_parameter(query, "username");
+        if (!username.empty()) {
+            decode_url(username);
+            json::array messages = get_all_messages(username);
+            json::object response = { {"messages", messages} };
+            serve_response(json::serialize(response), "application/json", http::status::ok);
+        } else {
+            serve_response("Username parameter missing", "text/plain", http::status::bad_request);
+        }
+    }
+
+    std::pair<std::string, std::string> parse_credentials() {
+        std::string body = req_.body();
+        auto username_pos = body.find("username=");
+        auto password_pos = body.find("&password=");
+
+        std::string username = body.substr(username_pos + 9, password_pos - (username_pos + 9));
+        std::string password = body.substr(password_pos + 10);
+
+        decode_url(username);
+        decode_url(password);
+        return {username, password};
+    }
+
+    std::tuple<std::string, std::string, std::string> parse_message() {
         std::string body = req_.body();
         auto sender_pos = body.find("sender=");
         auto receiver_pos = body.find("&receiver=");
@@ -131,22 +143,13 @@ private:
         decode_url(sender);
         decode_url(receiver);
         decode_url(text);
-
-        save_message(sender, receiver, text);
-        serve_response("Message sent", "text/plain", http::status::ok);
+        return {sender, receiver, text};
     }
 
-    void handle_get_messages() {
-        // Assuming the username is passed as a query parameter
-        auto query = req_.target().to_string();
-        auto username_pos = query.find("username=");
-        std::string username = query.substr(username_pos + 9);
-
-        decode_url(username);
-        json::array messages = get_all_messages(username);
-        
-        json::object response = { {"messages", messages} };
-        serve_response(json::serialize(response), "application/json", http::status::ok);
+    std::string parse_query_parameter(const std::string& query, const std::string& param) {
+        auto pos = query.find(param + "=");
+        if (pos == std::string::npos) return "";
+        return query.substr(pos + param.length() + 1);
     }
 
     json::array get_all_messages(const std::string& username) {
@@ -223,28 +226,57 @@ private:
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
                 "INSERT INTO Users (username, password) VALUES (?, ?)"));
             pstmt->setString(1, username);
-            pstmt->setString(2, password); // Assicurati di gestire la sicurezza delle password
-
+            pstmt->setString(2, password); // Assicurati che la password sia memorizzata in modo sicuro (hash)
             pstmt->executeUpdate();
-            return true; // Registrazione avvenuta con successo
+            return true;
         } catch (sql::SQLException& e) {
             std::cerr << "Errore nella registrazione: " << e.what() << std::endl;
             return false;
         }
     }
 
-    void serve_html_file(const std::string& file_path, const std::string& error_message = "") {
-        std::string content = read_html_file(file_path);
-        if (content.empty() && !error_message.empty()) {
-            content = "<html><body><h1>" + error_message + "</h1></body></html>";
+    void serve_html_file(const std::string& filename, const std::string& error_message = "") {
+        std::ifstream file(filename);
+        if (file) {
+            std::ostringstream ss;
+            ss << file.rdbuf();
+            res_ = http::response<http::string_body>(http::status::ok, req_.version());
+            res_.set(http::field::content_type, "text/html");
+            res_.body() = ss.str();
+            res_.prepare_payload();
+        } else {
+            send_not_found();
         }
-        serve_response(content, "text/html", http::status::ok);
+        write_response();
+    }
+
+    void serve_css_file(const std::string& filename) {
+        std::ifstream file(filename);
+        if (file) {
+            std::ostringstream ss;
+            ss << file.rdbuf();
+            res_ = http::response<http::string_body>(http::status::ok, req_.version());
+            res_.set(http::field::content_type, "text/css");
+            res_.body() = ss.str();
+            res_.prepare_payload();
+        } else {
+            send_not_found();
+        }
+        write_response();
     }
 
     void serve_response(const std::string& body, const std::string& content_type, http::status status) {
-        res_.result(status);
+        res_ = http::response<http::string_body>(status, req_.version());
         res_.set(http::field::content_type, content_type);
         res_.body() = body;
+        res_.prepare_payload();
+        write_response();
+    }
+
+    void send_not_found() {
+        res_ = http::response<http::string_body>(http::status::not_found, req_.version());
+        res_.set(http::field::content_type, "text/plain");
+        res_.body() = "404 Not Found";
         res_.prepare_payload();
         write_response();
     }
@@ -252,57 +284,46 @@ private:
     void write_response() {
         auto self = shared_from_this();
         http::async_write(socket_, res_,
-            [self](boost::beast::error_code ec, std::size_t bytes_transferred) {
+            [self](boost::beast::error_code ec, std::size_t) {
                 self->socket_.shutdown(tcp::socket::shutdown_send, ec);
             });
     }
 
-    std::string read_html_file(const std::string& file_path) {
-        std::ifstream file(file_path);
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        return buffer.str();
-    }
-
     void decode_url(std::string& str) {
-        for (size_t pos = 0; (pos = str.find('+', pos)) != std::string::npos; pos++) {
-            str.replace(pos, 1, " ");
-        }
-        for (size_t pos = 0; (pos = str.find("%20", pos)) != std::string::npos; pos++) {
-            str.replace(pos, 3, " ");
-        }
+        // Decodifica le sequenze percentuali
+        // Aggiungi qui la logica per decodificare i caratteri percentuali
     }
 };
 
 class Server {
 public:
-    Server(boost::asio::io_context& io_context, short port) 
-        : acceptor_(io_context, tcp::endpoint(tcp::v4(), port)) {
-        start_accept();
+    Server(boost::asio::io_context& ioc, tcp::endpoint endpoint)
+        : acceptor_(ioc, endpoint) {
+        accept_connections();
     }
 
 private:
     tcp::acceptor acceptor_;
 
-    void start_accept() {
+    void accept_connections() {
         acceptor_.async_accept(
             [this](boost::beast::error_code ec, tcp::socket socket) {
                 if (!ec) {
                     std::make_shared<Session>(std::move(socket))->start();
                 }
-                start_accept();
+                accept_connections();
             });
     }
 };
 
-int main(int argc, char* argv[]) {
+int main() {
     try {
-        boost::asio::io_context io_context;
-        Server server(io_context, 8080);
-        io_context.run();
-    } catch (std::exception& e) {
-        std::cerr << "Eccezione: " << e.what() << std::endl;
+        boost::asio::io_context ioc;
+        tcp::endpoint endpoint(tcp::v4(), 8080);
+        Server server(ioc, endpoint);
+        ioc.run();
+    } catch (const std::exception& e) {
+        std::cerr << "Errore: " << e.what() << std::endl;
     }
-
     return 0;
 }
