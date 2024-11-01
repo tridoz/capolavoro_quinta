@@ -113,8 +113,8 @@ function getAllUsers() {
         .catch(error => console.error("Errore nel recupero degli utenti:", error));
 }
 
-function initialize(usernameFromServer) {
-    username = usernameFromServer; 
+function initialize() {
+    username = getUsername(); 
     getAllMessages(); 
     getAllUsers(); 
     setInterval(getAllMessages, 2000); 
@@ -133,7 +133,8 @@ function populateReceiverButtons(users) {
     });
 }
 
-fetch('/getUsername')
+function getUsername(){
+    fetch('/getUsername')
     .then(response => {
         // Log the raw response for debugging
         return response.text().then(text => {
@@ -143,5 +144,9 @@ fetch('/getUsername')
     })
     .then(data => {
         console.log('Logged in username:', data.username);
+        return data.username;
     })
     .catch(error => console.error('Error fetching username:', error));
+}
+
+initialize();

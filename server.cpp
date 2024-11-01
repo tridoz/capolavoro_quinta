@@ -143,12 +143,14 @@ private:
         auto [username, password] = parse_credentials();
         if (check_credentials(username, password)) {
             logged_username = username;  
-            std::cout<<logged_username<<std::endl;
+            std::cout << "User logged in: " << logged_username << std::endl;
             serve_html_file("chat.html");
         } else {
+            std::cout << "Login failed for username: " << username << std::endl;
             serve_html_file("login.html", "Credenziali errate. Riprova.");
         }
     }
+
 
     void handle_registration() {
         auto [username, password] = parse_credentials();
@@ -182,7 +184,7 @@ private:
     }
     
     void handle_get_username() {
-        std::cout<<"get_username: "<<logged_username<<std::endl;
+        std::cout << "Request to get username. Current logged username: <" << logged_username <<">"<< std::endl;
         if (!logged_username.empty()) {
             json::object response = { {"username", logged_username} };
             serve_response(json::serialize(response), "application/json", http::status::ok);
