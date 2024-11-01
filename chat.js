@@ -1,5 +1,4 @@
 let selectedChat = ""; // Variabile globale per il destinatario selezionato
-let username = ""; // Variabile per lo username dell'utente loggato
 
 // Funzione per inviare un messaggio al server
 function sendMessage() {
@@ -114,7 +113,7 @@ function getAllUsers() {
 }
 
 function initialize() {
-    username = getUsername(); 
+    console.log(username);
     getAllMessages(); 
     getAllUsers(); 
     setInterval(getAllMessages, 2000); 
@@ -133,20 +132,5 @@ function populateReceiverButtons(users) {
     });
 }
 
-function getUsername(){
-    fetch('/getUsername')
-    .then(response => {
-        // Log the raw response for debugging
-        return response.text().then(text => {
-            console.log('Raw response:', text);  // Log the raw response
-            return JSON.parse(text);  // Then try to parse it as JSON
-        });
-    })
-    .then(data => {
-        console.log('Logged in username:', data.username);
-        return data.username;
-    })
-    .catch(error => console.error('Error fetching username:', error));
-}
 
 initialize();

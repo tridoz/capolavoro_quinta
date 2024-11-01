@@ -78,9 +78,7 @@ private:
             handle_get_users();  // Handle the new endpoint for getting users
         } else if (req_.target().starts_with("/getMessages")) {
             handle_get_messages();
-        } else if(req_.target() == "/getUsername"){
-            handle_get_username();
-        }else {
+        } else {
             send_not_found();
         }
     }
@@ -144,13 +142,13 @@ private:
         if (check_credentials(username, password)) {
             logged_username = username;  
             std::cout << "User logged in: " << logged_username << std::endl;
-            serve_html_file("chat.html");
+            serve_html_file("chat.html", "", logged_username);
         } else {
             std::cout << "Login failed for username: " << username << std::endl;
             serve_html_file("login.html", "Credenziali errate. Riprova.");
         }
-    }
 
+    }
 
     void handle_registration() {
         auto [username, password] = parse_credentials();
@@ -180,17 +178,6 @@ private:
             serve_response(json::serialize(response), "application/json", http::status::ok);
         } else {
             serve_response("Username parameter missing", "text/plain", http::status::bad_request);
-        }
-    }
-    
-    void handle_get_username() {
-        std::cout << "Request to get username. Current logged username: <" << logged_username <<">"<< std::endl;
-        if (!logged_username.empty()) {
-            json::object response = { {"username", logged_username} };
-            serve_response(json::serialize(response), "application/json", http::status::ok);
-        } else {
-            json::object error_response = { {"error", "User not logged in"} };
-            serve_response(json::serialize(error_response), "application/json", http::status::unauthorized);
         }
     }
     
@@ -321,7 +308,7 @@ private:
         }
     }
 
-    void serve_html_file(const std::string& filename, const std::string& message = "") {
+    void serve_html_file(const std::string& filename, const std::string& message = "", const std::string& username = "") {
         std::ifstream file(filename);
         if (!file.is_open()) {
             send_not_found();
@@ -334,6 +321,10 @@ private:
 
         if (!message.empty()) {
             content += "<p>" + message + "</p>";
+        }
+
+        if(!username.empty()){
+            content += "<script> let username = \"" + username + "\";</script>";
         }
 
         serve_response(content, "text/html", http::status::ok);
