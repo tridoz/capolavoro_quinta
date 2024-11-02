@@ -201,7 +201,7 @@ private:
         auto text_pos = body.find("&text=");
 
         std::string sender = body.substr(sender_pos + 7, receiver_pos - (sender_pos + 7));
-        std::string receiver = body.substr(receiver_pos + 10, text_pos - (receiver_pos + 10));
+        std::string receiver = body.substr(receiver_pos + 10, text_pos );
         std::string text = body.substr(text_pos + 6);
 
         decode_url(sender);

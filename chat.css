@@ -1,7 +1,6 @@
 body{
     margin:0px;
     padding: 0px;
-
 }
 
 #receiverButtons{
@@ -85,3 +84,18 @@ body{
 
 }
 
+.user, .other {
+    width: 100%;
+    height: auto;
+    background-color: transparent;
+    margin: 1% 0;
+    display: flex;
+}
+
+.user {
+    justify-content: flex-end;
+}
+
+.other {
+    justify-content: flex-start;
+}

@@ -72,6 +72,20 @@ function printMessages(messages) {
             messagesContainer.appendChild(messageElement);
         });
     }
+
+    for(let i = 0 ; i<messages.length ; i++){
+        const newMex = document.createElement("div");
+        if( messages[i].sender == username){
+            newMex.classList.add("user");
+        }else{
+            newMex.classList.add("other");
+        }
+
+        newMex.innerText = messages[i].message;
+        messagesContainer.appendChild(newMex);
+    }
+
+    
 }
 
 // Funzione per creare pulsanti dei destinatari
