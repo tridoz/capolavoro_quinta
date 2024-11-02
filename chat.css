@@ -1,60 +1,87 @@
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
+body{
+    margin:0px;
+    padding: 0px;
+
 }
 
-.container {
+#receiverButtons{
+    position: absolute;
+    height: 90%;
+    width:20%;
+    top:0%;
+    left:0%;
+    background-color: #000000;
+}
+
+#messagesContainer{
+    position: absolute;
+    left: 20%;
+    width:80%;
+    top:0%;
+    height:90%;
+    background-color: #303030;
+    border-color: rgb(255, 0, 255);
+}
+
+#input-container{
+    position: absolute;
+    left:20%;
+    bottom:0%;
+    width: 80%;
+    height: 10%;
+    background-color: #505050;
+}
+
+#messageInput{
+    margin: 0%;
+    width:70%;
+    position: relative;
+    height: 70%;
+    left: 10%;
+    top:10%;
+    border-radius: 20px;
+    border-color: rgb(255, 0, 255);
+    background-color: rgb(255, 171, 255);
+    color:black;
+    padding-left:2%;
+} 
+
+#send_button{
+    position: relative;
+    left: 15%;
+    top:5%;
+    background-color: rgb(255, 171, 255);
+    border-color: rgb(255, 0, 255);
+    width: 50px;
+    height: 50px;
+    border-radius:25px;
+}
+
+.chatSelector{
+    width: 95%;
+    position: relative;
+    left:2.5%;
+    height: 10%;
+    padding: 2% 0%;
+    background-color: rgb(255, 171, 255);
+    border-color: rgb(255, 0, 255);
+    color:black;
+    margin: 2% 0%;
+}
+
+#usernameDisplayer{
+    position: absolute;
+    bottom:0%;
+    width: 20%;
+    height: 10%;
+
+    left:0%;
+    background-color: black;
+    color:white;
+
     display: flex;
-    height: 100vh;
+    justify-content: center; 
+    align-items: center;  
+
 }
 
-.sidebar {
-    width: 250px;
-    background-color: #f0f0f0;
-    padding: 20px;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-}
-
-.sidebar h2 {
-    margin: 0;
-}
-
-.sidebar ul {
-    list-style-type: none;
-    padding: 0;
-}
-
-.sidebar li {
-    padding: 10px;
-    cursor: pointer;
-}
-
-.sidebar li:hover {
-    background-color: #ddd;
-}
-
-.chat-area {
-    flex-grow: 1;
-    padding: 20px;
-}
-
-.chat-area h2 {
-    margin: 0;
-}
-
-.messages {
-    border: 1px solid #ccc;
-    height: calc(100% - 60px); /* Espressione per la larghezza totale - input e pulsante */
-    overflow-y: auto;
-    margin-bottom: 10px;
-    padding: 10px;
-}
-
-#message-input {
-    width: calc(100% - 80px); /* Spazio per il pulsante "Invia" */
-    padding: 10px;
-}
-
-button {
-    padding: 10px;
-}

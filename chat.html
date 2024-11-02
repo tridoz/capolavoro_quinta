@@ -1,18 +1,25 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat</title>
-    <link rel="stylesheet" href="chat.css">
-    <script src="chat.js" defer></script>
-</head>
-<body>
-    <div id="chatContainer">
+
+    <head>
+        <title>Chat</title>
+        <link rel="stylesheet" href="chat.css">
+        <script src="chat.js" defer></script>
+    </head>
+
+    <body>
         <div id="receiverButtons"></div> <!-- Contenitore per i pulsanti dei destinatari -->
-        <div id="messagesContainer"></div>
-        <input type="text" id="messageInput" placeholder="Scrivi un messaggio...">
-        <button onclick="sendMessage()">Invia</button>
-    </div>
-</body>
-</html>
+      
+        <div id="messagesContainer" class="messages"></div>
+
+        <div id="input-container">
+            <input type="text" id="messageInput" placeholder="Scrivi un messaggio...">
+            <button id="send_button" onclick="sendMessage()"><></button>
+        </div>
+
+        <div id="usernameDisplayer"></div>
+
+    </body>
+    </html>
+

@@ -113,7 +113,7 @@ function getAllUsers() {
 }
 
 function initialize() {
-    console.log(username);
+    document.getElementById("usernameDisplayer").innerText = "Benvenuto " + username + "!!!";
     getAllMessages(); 
     getAllUsers(); 
     setInterval(getAllMessages, 2000); 
@@ -125,6 +125,7 @@ function populateReceiverButtons(users) {
     console.log(users);
     users.forEach(user => {
         const button = document.createElement("button");
+        button.classList.add('chatSelector')
         button.innerText = user.username || user; 
         button.onclick = () => selectChat(user.username || user);
         receiverButtonsContainer.appendChild(button);
