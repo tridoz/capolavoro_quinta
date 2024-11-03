@@ -11,7 +11,7 @@ function sendMessage() {
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
             },
-            body: `sender=${username}&receiver=${selectedChat}&message=${encodeURIComponent(message)}`
+            body: `sender=${username}&receiver=${selectedChat}&message=${message}`
         })
         .then(response => {
             if (response.ok) {
@@ -34,12 +34,12 @@ function getAllMessages() {
         return; // Esci dalla funzione se nessuna chat è selezionata
     }
 
-    fetch(`/getAllMessages?chatId=${selectedChat}`, {
+    fetch(`/getAllMessages`, {
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `username=${username}`
+        body: `username=${username}&receiver=${selectChat}`
     })
     .then(response => {
         // Controlla se la risposta è valida e non contiene errori

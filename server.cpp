@@ -169,8 +169,7 @@ private:
     }
 
     void handle_get_messages() {
-        auto query = std::string(req_.target());
-        auto username = parse_query_parameter(query, "username");
+        
         if (!username.empty()) {
             decode_url(username);
             json::array messages = get_all_messages(username);
@@ -198,11 +197,13 @@ private:
         std::string body = req_.body();
         auto sender_pos = body.find("sender=");
         auto receiver_pos = body.find("&receiver=");
-        auto text_pos = body.find("&text=");
+        auto text_pos = body.find("&message=");
+
+        std::cout<<"SP: "<<sender_pos<<"\nRP: "<<receiver_pos<<"\nMP: "<<text_pos<<std::endl;
 
         std::string sender = body.substr(sender_pos + 7, receiver_pos - (sender_pos + 7));
-        std::string receiver = body.substr(receiver_pos + 10, text_pos );
-        std::string text = body.substr(text_pos + 6);
+        std::string receiver = body.substr(receiver_pos + 10, text_pos-(receiver_pos+10)  );
+        std::string text = body.substr(text_pos + 8);
 
         decode_url(sender);
         decode_url(receiver);

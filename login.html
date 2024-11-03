@@ -1,23 +1,30 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
     <link rel="stylesheet" href="login.css">
+    <title>Login #1 | AsmrProg</title>
 </head>
 <body>
-    <div class="container">
-        <h1>Accedi</h1>
-        <form action="/login" method="POST" id="loginForm">
-            <label for="username">Nome Utente:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button type="submit">Accedi</button>
+    
+    <div class="login-card">
+        <h2>Login</h2>
+        <h3>Enter your credentials</h3>
+
+        <form action="/login" method="POST" class="login-form">
+            <input type="text" placeholder="Username" name="username">
+            <input type="password" placeholder="Password" name="password">
+            <button type="submit">LOGIN</button>
         </form>
-        <p>Non hai un account? <a href="/register.html">Registrati qui</a></p>
-        <p id="message"></p>
+
+        <form action="/register" method="post">
+            <a href="/register.html">Don't have an account?</a>
+        </form>
+
     </div>
 </body>
 </html>
+
+
