@@ -74,7 +74,9 @@ private:
             serve_css_file("chat.css");
         } else if (req_.target() == "/chat.js") {
             serve_js_file("chat.js");
-        } else if (req_.target() == "/getUsers") {
+        } else if(req_.target() == "/background.svg"){
+            serve_image_file("background.svg");
+        }else if (req_.target() == "/getUsers") {
             handle_get_users();  // Handle the new endpoint for getting users
         } else if (req_.target().starts_with("/getMessages")) {
             handle_get_messages();
@@ -168,17 +170,7 @@ private:
         }
     }
 
-    void handle_get_messages() {
-        
-        if (!username.empty()) {
-            decode_url(username);
-            json::array messages = get_all_messages(username);
-            json::object response = { {"messages", messages} };
-            serve_response(json::serialize(response), "application/json", http::status::ok);
-        } else {
-            serve_response("Username parameter missing", "text/plain", http::status::bad_request);
-        }
-    }
+    void handle_get_messages() {}
     
     std::pair<std::string, std::string> parse_credentials() {
         std::string body = req_.body();
@@ -358,6 +350,18 @@ private:
         serve_response(content, "application/javascript", http::status::ok);
     }
 
+    void serve_image_file(const std::string& filename) {
+        std::ifstream file(filename, std::ios::binary);
+        if (!file.is_open()) {
+            send_not_found();
+            return;
+        }
+
+        std::ostringstream ss;
+        ss << file.rdbuf();
+        serve_response(ss.str(), "image/svg+xml", http::status::ok);
+    }
+    
     void serve_response(const std::string& body, const std::string& content_type, http::status status) {
         res_.result(status);
         res_.set(http::field::content_type, content_type);

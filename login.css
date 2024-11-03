@@ -8,6 +8,13 @@ html, body, .wrapper{
     height: 100%;
 }
 
+
+h2, h3{
+    color: #ff05ff;
+    text-shadow:
+      0 0 5px #ff05ff;
+}
+
 body{
     display: grid;
     place-items: center;
@@ -18,7 +25,6 @@ body{
     background-size: cover;
     font-family: "Ubuntu";
     color: #000;
-    animation: rotate 6s infinite alternate linear;
 }
 
 .login-card{
@@ -28,8 +34,10 @@ body{
     margin: 0 20px;
     padding: 70px 30px 44px;
     border-radius: 1.25rem;
-    background: #fff;
+    border: 1px solid #ffffff;
+    background: #002038;
     text-align: center;
+    box-shadow: 15px 16px 21px 6px #000000;
 }
 
 .login-card > h2{
@@ -39,7 +47,6 @@ body{
 }
 
 .login-card > h3{
-    color: rgba(0, 0, 0, 0.38);
     margin: 0 0 30px;
     font-weight: 500;
     font-size: 1rem;
@@ -67,7 +74,7 @@ body{
 }
 
 .login-form > input:hover{
-    border: 2px solid #10449A;
+    border: 2px solid #ff05ff;
 }
 
 .login-form > button{
@@ -75,8 +82,8 @@ body{
     width: 100%;
     padding: 0 16px;
     border-radius: 1.25rem;
-    background: #216ce7;
-    color: #f9f9f9;
+    background: #ff05ff;
+    color: #000000;
     border: 0;
     font-family: inherit;
     font-size: 1rem;
@@ -87,27 +94,27 @@ body{
 }
 
 .login-form > button:hover{
-    background: #10449A;
+    background: #000000;
+    color: #ff05ff;
 }
 
-.login-form > a{
-    color: #216ce7;
-    font-size: 0.9rem;
-    text-align: left;
+a{
+    color: #ff05ff;
+    font-size: 1.1rem;
     text-decoration: none;
     margin-bottom: 6px;
     transition: all 0.375s;
 }
 
-.login-form > a:hover{
-    color: #10449A;
+.change-access-method{
+    margin-top: 15px;
 }
 
-@keyframes rotate{
-    100%{
-        background-position: 15% 50%;
-    }
+a:hover{
+    color: #ff05ff;
 }
+
+
 
 @media (width >= 500px){
     body{
