@@ -136,7 +136,9 @@ private:
             handle_registration();
         } else if (req_.target() == "/sendMessage") {
             handle_send_message();
-        } else {
+        } else if(req_.target() == "/getAllMessages"){
+            handle_get_messages();
+        }else {
             send_not_found();
         }
     }
@@ -172,8 +174,26 @@ private:
         }
     }
 
-    void handle_get_messages() {}
+    void handle_get_messages() {
+
+        std::pair<std::string, std::string> request = parse_username_receiver( req_.body() );
+        json::array response = get_all_messages(request.first, request.second);
+        json::object resp = {{"messages", response}};
+        serve_response(json::serialize(resp), "application/json", http::status::ok);        
+    }
     
+    std::pair<std::string, std::string> parse_username_receiver(std::string body){
+        auto username_pos = body.find("username=");
+        auto receiver_pos = body.find("&receiver=");
+
+        std::string username = body.substr(username_pos + 9, receiver_pos - (username_pos + 9));
+        std::string receiver = body.substr(receiver_pos + 10);
+
+        decode_url(username);
+        decode_url(receiver);
+        return {username, receiver};   
+    }
+
     std::pair<std::string, std::string> parse_credentials() {
         std::string body = req_.body();
         auto username_pos = body.find("username=");
@@ -211,7 +231,9 @@ private:
         return query.substr(pos + param.length() + 1);
     }
 
-    json::array get_all_messages(std::string username) {
+    json::array get_all_messages(std::string search_username, std::string search_receiver) {
+    std::cout<<"username: \n"<<search_username<<"\n\nreceiver: "<<search_receiver<<std::endl;
+    
     sql::mysql::MySQL_Driver *driver;
     sql::Connection *con;
     sql::PreparedStatement *pstmt;
@@ -221,29 +243,38 @@ private:
     con = driver->connect("tcp://127.0.0.1:3306", DB_User, DB_Password);
     con->setSchema(DB_Name);
 
-    pstmt = con->prepareStatement( "SELECT sender, receiver, timestamp, text FROM Messages WHERE sender = ? OR receiver = ?");
-    pstmt->setString(1, username);
-    pstmt->setString(2, username);
+    pstmt = con->prepareStatement(
+        "SELECT sender, receiver, timestamp, message "
+        "FROM Messages "
+        "WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)"
+    );
+
+    pstmt->setString(1, search_username);
+    pstmt->setString(2, search_receiver);
+    pstmt->setString(3, search_receiver);
+    pstmt->setString(4, search_username);
 
     res = pstmt->executeQuery();
 
     boost::json::array jsonArray;
 
     while (res->next()) {
-        // Convert SQLString to std::string
+
         std::string sender = res->getString("sender").c_str();
         std::string receiver = res->getString("receiver").c_str();
         std::string message = res->getString("message").c_str();
+        std::string timestamp = res->getString("timestamp").c_str();
 
-        // Create a JSON object
         boost::json::object jsonObject;
         jsonObject["sender"] = sender;
         jsonObject["receiver"] = receiver;
         jsonObject["message"] = message;
+        jsonObject["timestamp"] = timestamp;
 
         // Add the object to the array
         jsonArray.push_back(jsonObject);
     }
+
 
     // Clean up
     delete res;

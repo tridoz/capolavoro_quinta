@@ -39,39 +39,34 @@ function getAllMessages() {
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: `username=${username}&receiver=${selectChat}`
+        body: `username=${username}&receiver=${selectedChat}`
     })
     .then(response => {
-        // Controlla se la risposta è valida e non contiene errori
+
         if (!response.ok) {
             console.error("Errore nel recupero dei messaggi:", response.statusText);
             return;
         }
-        return response.json(); // Analizza come JSON
+        return response.json(); 
     })
     .then(data => {
         printMessages(data);
-        createReceiverButtons(data); // Crea i pulsanti dei destinatari
     })
     .catch(error => console.error("Errore nel recupero dei messaggi:", error));
 }
 
-// Funzione per stampare i messaggi
-function printMessages(messages) {
+function printMessages(data) {
+    const messages = data.messages;
+
     const messagesContainer = document.getElementById("messagesContainer");
-    messagesContainer.innerHTML = ""; // Pulisci i messaggi precedenti
+    messagesContainer.innerHTML = ""; 
 
     if (messages.length === 0) {
         const noMessagesElement = document.createElement("div");
         noMessagesElement.innerText = "Nessun messaggio trovato per questa chat.";
         messagesContainer.appendChild(noMessagesElement);
-    } else {
-        messages.forEach(message => {
-            const messageElement = document.createElement("div");
-            messageElement.innerText = `${message.timestamp} - ${message.sender}: ${message.message}`;
-            messagesContainer.appendChild(messageElement);
-        });
-    }
+        return;
+    } 
 
     for(let i = 0 ; i<messages.length ; i++){
         const newMex = document.createElement("div");
@@ -88,30 +83,30 @@ function printMessages(messages) {
     
 }
 
-// Funzione per creare pulsanti dei destinatari
-function createReceiverButtons(messages) {
-    const receiverSet = new Set(); // Usa un Set per evitare duplicati
+function createReceiverButtons(data) {
+
+    const messages = data.messages;
+    const receiverSet = new Set(); 
 
     messages.forEach(message => {
-        if (message.sender !== username) { // Solo destinatari che non sono l'utente loggato
-            receiverSet.add(message.sender); // Aggiungi il mittente alla lista dei destinatari
+        if (message.sender !== username) { 
+            receiverSet.add(message.sender); 
         } else {
-            receiverSet.add(message.receiver); // Aggiungi il ricevente se l'utente è il mittente
+            receiverSet.add(message.receiver); 
         }
     });
 
-    populateReceiverButtons(Array.from(receiverSet)); // Passa l'array di destinatari
+    populateReceiverButtons(Array.from(receiverSet)); 
 }
 
-// Funzione per selezionare una chat
 function selectChat(receiver) {
-    selectedChat = receiver; // Imposta il destinatario selezionato
+    selectedChat = receiver; 
     document.getElementById("selectedChatName").innerText = selectedChat;
-    document.getElementById("messagesContainer").innerHTML = ""; // Pulisci i messaggi
-    getAllMessages(); // Recupera i messaggi per il destinatario selezionato
+    document.getElementById("messagesContainer").innerHTML = ""; 
+    getAllMessages(); 
 }
 
-// Funzione per ottenere tutti gli utenti
+
 function getAllUsers() {
     fetch("/getUsers")
         .then(response => {
