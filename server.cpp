@@ -76,6 +76,8 @@ private:
             serve_js_file("chat.js");
         } else if(req_.target() == "/background.svg"){
             serve_image_file("background.svg");
+        } else if(req_.target() == "/chat_background.svg"){
+            serve_image_file("chat_background.svg");
         }else if (req_.target() == "/getUsers") {
             handle_get_users();  // Handle the new endpoint for getting users
         } else if (req_.target().starts_with("/getMessages")) {
@@ -195,7 +197,7 @@ private:
 
         std::string sender = body.substr(sender_pos + 7, receiver_pos - (sender_pos + 7));
         std::string receiver = body.substr(receiver_pos + 10, text_pos-(receiver_pos+10)  );
-        std::string text = body.substr(text_pos + 8);
+        std::string text = body.substr(text_pos + 9);
 
         decode_url(sender);
         decode_url(receiver);
@@ -256,11 +258,13 @@ private:
             auto con = create_connection();
             std::unique_ptr<sql::PreparedStatement> pstmt(con->prepareStatement(
                 "INSERT INTO Messages (sender, receiver, timestamp, message) VALUES (?, ?, NOW(), ?)"));
+
+            
             pstmt->setString(1, sender);
             pstmt->setString(2, receiver);
             pstmt->setString(3, text);
             pstmt->executeUpdate();
-            std::cout<<"messaggio inserito correttamente nel DB"<<std::endl;
+            std::cout<<"messaggio inserito correttamente nel DB:\nSender -> "<<sender<<"\nreceiver-> "<<receiver<<"\nmessage->"<<text<<std::endl;
             return true;
         } catch (sql::SQLException& e) {
             std::cerr << "Errore nel salvataggio del messaggio: " << e.what() << std::endl;

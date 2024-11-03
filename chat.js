@@ -106,6 +106,7 @@ function createReceiverButtons(messages) {
 // Funzione per selezionare una chat
 function selectChat(receiver) {
     selectedChat = receiver; // Imposta il destinatario selezionato
+    document.getElementById("selectedChatName").innerText = selectedChat;
     document.getElementById("messagesContainer").innerHTML = ""; // Pulisci i messaggi
     getAllMessages(); // Recupera i messaggi per il destinatario selezionato
 }

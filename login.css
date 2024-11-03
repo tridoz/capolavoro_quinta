@@ -2,6 +2,7 @@
 
 *{
     box-sizing: border-box;
+    font-family: "Ubuntu";
 }
 
 html, body, .wrapper{
@@ -23,7 +24,6 @@ body{
     background-image: url("background.svg");
     background-repeat: no-repeat;
     background-size: cover;
-    font-family: "Ubuntu";
     color: #000;
 }
 
