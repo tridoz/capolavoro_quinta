@@ -96,14 +96,34 @@ pre {
     position: absolute;
     top:0%;
     right: 0%;
-
-    display: flex;
-    justify-content: center; 
-    align-items: center;  
-
-    
-
 }
+
+#selectedChatNamePre{
+    background-color: transparent;
+    color:black;
+
+    font-size: 50px;
+    font-weight: 900;
+    width: 80%;
+    height: 10%;
+    position: absolute;
+    top:0%;
+    left: 20%;
+    justify-content: center;
+    align-items: center;
+}
+
+
+#changeUserButton{
+    background-color: rgb(255, 0, 255);
+    color:white;
+    position: absolute;
+    height: 70%;
+    top:15%;
+    right: 1.5%;
+}
+
+
 
 #input-container{
     position: absolute;

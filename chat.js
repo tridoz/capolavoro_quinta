@@ -127,7 +127,7 @@ function createReceiverButtons(data) {
 
 function selectChat(receiver) {
     selectedChat = receiver; 
-    document.getElementById("selectedChatName").innerText = selectedChat;
+    document.getElementById("selectedChatNamePre").innerText = selectedChat;
     document.getElementById("messagesContainer").innerHTML = ""; 
     getAllMessages(); 
 }

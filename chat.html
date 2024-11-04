@@ -9,12 +9,18 @@
     </head>
 
     <body>
-        <div id="selectedChatName"></div>
+        <div id="selectedChatName">
+            <pre id="selectedChatNamePre"></pre>
+            <form action="/" method="GET" id="changeUserForm">
+                <button id="changeUserButton">Change User</button>
+            </form>
+        </div>
         
         <div id="receiverButtons"></div> 
       
         <div id="messagesContainer" class="messages"></div>
 
+        
         <div id="input-container">
             <input type="text" id="messageInput" placeholder="Scrivi un messaggio...">
             <button id="send_button" onclick="sendMessage()"><></button>
