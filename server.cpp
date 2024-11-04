@@ -213,7 +213,6 @@ private:
         auto receiver_pos = body.find("&receiver=");
         auto text_pos = body.find("&message=");
 
-        std::cout<<"SP: "<<sender_pos<<"\nRP: "<<receiver_pos<<"\nMP: "<<text_pos<<std::endl;
 
         std::string sender = body.substr(sender_pos + 7, receiver_pos - (sender_pos + 7));
         std::string receiver = body.substr(receiver_pos + 10, text_pos-(receiver_pos+10)  );
@@ -232,7 +231,6 @@ private:
     }
 
     json::array get_all_messages(std::string search_username, std::string search_receiver) {
-    std::cout<<"username: \n"<<search_username<<"\n\nreceiver: "<<search_receiver<<std::endl;
     
     sql::mysql::MySQL_Driver *driver;
     sql::Connection *con;

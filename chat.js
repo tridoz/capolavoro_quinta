@@ -1,10 +1,10 @@
-let selectedChat = ""; // Variabile globale per il destinatario selezionato
+let selectedChat = ""; 
 
-// Funzione per inviare un messaggio al server
+
 function sendMessage() {
     const messageInput = document.getElementById("messageInput");
     const message = messageInput.value;
-
+    addMessage(message);
     if (message && selectedChat) {
         fetch("/sendMessage", {
             method: "POST",
@@ -27,7 +27,20 @@ function sendMessage() {
     }
 }
 
-// Funzione per ottenere tutti i messaggi dal server
+function addMessage(message){
+    const msgbox = document.getElementById("messagesContainer");
+    const newMexBox = document.createElement("div");
+    newMexBox.classList.add("message_row");
+
+    const newMex = document.createElement("div");
+    newMex.classList.add("user_message_box");
+
+    newMex.innerText = message.message;
+    newMexBox.appendChild(newMex);
+    msgbox.appendChild(newMexBox);
+
+}
+
 function getAllMessages() {
     if (!selectedChat) {
         console.warn('Nessuna chat selezionata. Assicurati di selezionare un destinatario.');
@@ -62,22 +75,35 @@ function printMessages(data) {
     messagesContainer.innerHTML = ""; 
 
     if (messages.length === 0) {
+        
         const noMessagesElement = document.createElement("div");
-        noMessagesElement.innerText = "Nessun messaggio trovato per questa chat.";
+        noMessagesElement.classList.add("errorMessage");
+        const errorMex = document.createElement("pre");
+        errorMex.classList.add("errorPre");
+
+        errorMex.innerText = "Nessun messaggio trovato per questa chat.";
+        noMessagesElement.appendChild(errorMex)
         messagesContainer.appendChild(noMessagesElement);
         return;
     } 
 
     for(let i = 0 ; i<messages.length ; i++){
-        const newMex = document.createElement("div");
-        if( messages[i].sender == username){
-            newMex.classList.add("user");
+        const newMexBox = document.createElement("div");
+        console.log(messages[i]);
+        const newMex = document.createElement("pre");
+
+        console.log(username)
+        if( messages[i].sender == username ){
+            newMexBox.classList.add("userMessage");
+            newMex.classList.add("userPre")
         }else{
-            newMex.classList.add("other");
+            newMexBox.classList.add("chatMessage");
+            newMex.classList.add("chatPre");
         }
 
         newMex.innerText = messages[i].message;
-        messagesContainer.appendChild(newMex);
+        newMexBox.appendChild(newMex);
+        messagesContainer.appendChild(newMexBox);
     }
 
     
@@ -105,7 +131,6 @@ function selectChat(receiver) {
     document.getElementById("messagesContainer").innerHTML = ""; 
     getAllMessages(); 
 }
-
 
 function getAllUsers() {
     fetch("/getUsers")
